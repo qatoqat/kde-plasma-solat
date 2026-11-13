@@ -1,6 +1,6 @@
 [package]
 name = "kde-plasma-solat"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2024"
 description = "JAKIM prayer times for KDE Plasma: lock screen and panel widget"
 license = "GPL-2.0-or-later"

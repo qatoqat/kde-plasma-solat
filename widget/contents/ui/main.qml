@@ -148,7 +148,7 @@ PlasmoidItem {
                     text: (root.english ? "Prayer Times" : "Waktu Solat") + (root.st ? " · " + root.st.zone : "")
                 }
                 PlasmaComponents3.ToolButton {
-                    icon.name: "internet-web-browser"
+                    icon.name: "applications-internet"
                     display: PlasmaComponents3.AbstractButton.IconOnly
                     text: root.english ? "Open e-solat.gov.my" : "Buka e-solat.gov.my"
                     PlasmaComponents3.ToolTip.text: text
