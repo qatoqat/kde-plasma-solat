@@ -78,6 +78,10 @@ The behaviour tests load the real `main.qml` against stub Plasma modules (`widge
 
 Pushing a `v*` tag builds the `.plasmoid` files in CI and attaches them to the release.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 GPL-2.0-or-later
