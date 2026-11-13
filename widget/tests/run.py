@@ -19,7 +19,10 @@ WIDGET = os.path.dirname(HERE)
 
 
 def find_qml():
-    for cand in (shutil.which("qml6"), shutil.which("qml"), "/usr/lib/qt6/bin/qml"):
+    import glob
+    cands = [shutil.which("qml6"), shutil.which("qml"), "/usr/lib/qt6/bin/qml"]
+    cands += glob.glob("/usr/lib/*/qt6/bin/qml") + glob.glob("/usr/lib/qt6/bin/qml*")
+    for cand in cands:
         if cand and os.path.exists(cand):
             return cand
     sys.exit("qml6 not found (install Qt 6 declarative tools)")
