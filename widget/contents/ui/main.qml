@@ -172,19 +172,24 @@ PlasmoidItem {
         const on = lockPlugin === "solat.lockscreen";
         if (cfg.LockScreen !== on) cfg.LockScreen = on;
     }
-    Connections {
-        target: root.cfg
-        function onLockScreenChanged() {
-            const want = root.cfg.LockScreen ? "solat.lockscreen" : "org.kde.image";
-            if (!root.lockKnown || (root.lockPlugin === "solat.lockscreen") === root.cfg.LockScreen) return;
-            root.lockPlugin = want;
-            runner.connectSource("kwriteconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugin " + want);
-            if (root.cfg.LockScreen) root.mirrorAll();
-        }
-        function onZoneChanged() { if (root.cfg.Migrated) root.sync(false); }
-        function onPrayerDataChanged() { if (root.cfg.Migrated) root.mirrorAll(); }
-        function onEnglishChanged() { if (root.cfg.Migrated) root.mirrorAll(); }
-        function onUse12hChanged() { if (root.cfg.Migrated) root.mirrorAll(); }
+    // Watch config values through plain properties: their change signals fire
+    // reliably when the settings dialog applies, unlike the config map's own.
+    readonly property string watchZone: cfg.Zone
+    readonly property string watchData: cfg.PrayerData
+    readonly property bool watchEnglish: cfg.English
+    readonly property bool watchUse12h: cfg.Use12h
+    readonly property bool watchLock: cfg.LockScreen
+    readonly property bool watchNotify: cfg.Notify
+    onWatchZoneChanged: if (cfg.Migrated) sync(false)
+    onWatchDataChanged: if (cfg.Migrated) mirrorAll()
+    onWatchEnglishChanged: if (cfg.Migrated) mirrorAll()
+    onWatchUse12hChanged: if (cfg.Migrated) mirrorAll()
+    onWatchNotifyChanged: notifyTick()
+    onWatchLockChanged: {
+        if (!lockKnown || (lockPlugin === "solat.lockscreen") === cfg.LockScreen) return;
+        lockPlugin = cfg.LockScreen ? "solat.lockscreen" : "org.kde.image";
+        runner.connectSource("kwriteconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugin " + lockPlugin);
+        if (cfg.LockScreen) mirrorAll();
     }
 
     // ---- downloading ----
