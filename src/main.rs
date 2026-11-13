@@ -1,4 +1,4 @@
-//! solat-lock: syncs JAKIM (e-solat.gov.my) prayer times into the KDE lock
+//! solat: syncs JAKIM (e-solat.gov.my) prayer times into the KDE lock
 //! screen wallpaper plugin `solat.lockscreen`.
 //!
 //! The zone is chosen in System Settings → Screen Locking → Appearance and is
@@ -11,7 +11,7 @@ mod remind;
 
 use std::process::{Command, ExitCode};
 
-use chrono::{Datelike, Local, NaiveDate, NaiveTime, TimeDelta};
+use chrono::{Datelike, Local, NaiveDate, TimeDelta};
 use serde::{Deserialize, Serialize};
 
 const PLUGIN: &str = "solat.lockscreen";
@@ -191,20 +191,41 @@ fn sync(mut force: bool) -> Result<()> {
 }
 
 fn show() -> Result<()> {
-    let store = load_store().ok_or("no cached data yet, run `solat-lock sync` first")?;
+    let store = load_store().ok_or("no cached data yet, run `solat sync` first")?;
     let now = Local::now();
-    let today = now.format("%Y-%m-%d").to_string();
-    let day = store.days.iter().find(|d| d.d == today).ok_or("today is not in the cache, run `solat-lock sync`")?;
+    let date = remind::prayer_day(now);
+    let key = date.format("%Y-%m-%d").to_string();
+    let day = store.days.iter().find(|d| d.d == key).ok_or("today is not in the cache, run `solat sync`")?;
     println!("Zone {}  ·  {}  ·  Hijri {}  (fetched {})", store.zone, day.d, day.h, store.fetched);
-    let now_t = now.time();
-    let done = remind::done_on(now.date_naive());
+    let times = remind::times_for(date)?;
+    let done = remind::done_on(date);
     let mut marked = false;
     for (i, (name, t)) in NAMES.iter().zip(&day.t).enumerate() {
-        let upcoming = !marked && *name != "Imsak" && NaiveTime::parse_from_str(t, "%H:%M").is_ok_and(|t| t > now_t);
+        let upcoming = !marked && *name != "Imsak" && times[i] > now;
         marked |= upcoming;
         let check = if done.contains(&i) { "✓" } else { "" };
         println!("{} {name:<8} {t}  {check}", if upcoming { "→" } else { " " });
     }
+    Ok(())
+}
+
+/// Machine-readable state for the panel widget. The day runs Imsak to Imsak.
+fn status() -> Result<()> {
+    let store = load_store().ok_or("no cached data yet, run `solat sync` first")?;
+    let date = remind::prayer_day(Local::now());
+    let key = date.format("%Y-%m-%d").to_string();
+    let idx = store.days.iter().position(|d| d.d == key);
+    let out = serde_json::json!({
+        "zone": current_zone(),
+        "stale": store.zone != current_zone(),
+        "english": read_cfg("English").as_deref() == Some("true"),
+        "use12h": read_cfg("Use12h").as_deref() == Some("true"),
+        "day": idx.map(|i| &store.days[i]),
+        "next": idx.and_then(|i| store.days.get(i + 1)),
+        "done": remind::done_on(date),
+        "last": store.days.last().map(|d| &d.d),
+    });
+    println!("{out}");
     Ok(())
 }
 
@@ -225,10 +246,14 @@ fn run(cmd: &str, args: &[&str]) -> Result<()> {
 /// Per-user setup after installing: enables the services and switches the
 /// lock screen to the plugin.
 fn setup() -> Result<()> {
+    // Retire the units of the old name (solat-lock), if any.
+    let _ = Command::new("systemctl")
+        .args(["--user", "disable", "--now", "solat-lock.timer", "solat-lock.path", "solat-lock-notify.service"])
+        .output();
     run("systemctl", &["--user", "daemon-reload"])?;
     run(
         "systemctl",
-        &["--user", "enable", "--now", "solat-lock.timer", "solat-lock.path", "solat-lock-notify.service"],
+        &["--user", "enable", "--now", "solat.timer", "solat.path", "solat-notify.service"],
     )?;
     run("kwriteconfig6", &["--file", "kscreenlockerrc", "--group", "Greeter", "--key", "WallpaperPlugin", PLUGIN])?;
     sync(false)?;
@@ -237,19 +262,20 @@ fn setup() -> Result<()> {
 }
 
 fn mark(i: usize, done: bool) -> Result<()> {
-    remind::set_done(Local::now().date_naive(), i, done)?;
+    remind::set_done(remind::prayer_day(Local::now()), i, done)?;
     println!("{} {}", NAMES[i], if done { "✓" } else { "unmarked" });
     Ok(())
 }
 
 const USAGE: &str = "\
-usage: solat-lock [command]
+usage: solat [command]
 
   setup            enable the user services and use the plugin on the lock screen
   sync [--force]   download prayer times for the configured zone (default)
+  status           print state as JSON (used by the panel widget)
   show             print today's cached prayer times
   zone [CODE]      print or set the zone (also settable in System Settings)
-  done [PRAYER]    mark a prayer done today (default: the current one)
+  done [PRAYER]    mark a prayer done for the current day (Imsak to Imsak) (default: the current one)
   undo PRAYER      unmark a prayer for today
   daemon           send prayer-time notifications (run by systemd)";
 
@@ -260,6 +286,7 @@ fn main() -> ExitCode {
         [] | ["sync"] => sync(false),
         ["sync", "--force"] | ["--force"] => sync(true),
         ["show"] => show(),
+        ["status"] => status(),
         ["zone"] => Ok(println!("{}", current_zone())),
         ["zone", z] => set_zone(z),
         ["done"] => remind::latest_prayer(Local::now()).and_then(|i| mark(i, true)),
@@ -275,7 +302,7 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("solat-lock: {e}");
+            eprintln!("solat: {e}");
             ExitCode::FAILURE
         }
     }

@@ -1,6 +1,6 @@
 //! Prayer check-off state and the notification daemon that asks about it.
 //!
-//! Done prayers are kept in ~/.local/state/solat-lock/done.json, and today's
+//! Done prayers are kept in ~/.local/state/solat/done.json, and today's
 //! are mirrored into kscreenlockerrc (`Done`) so the lock screen can draw
 //! check marks; the lock screen itself cannot write anything.
 
@@ -58,7 +58,14 @@ fn state_path() -> PathBuf {
     let base = std::env::var_os("XDG_STATE_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/state"));
-    base.join("solat-lock/done.json")
+    let path = base.join("solat/done.json");
+    // Carry history over from the old name (solat-lock).
+    let old = base.join("solat-lock/done.json");
+    if !path.exists() && old.exists() {
+        let _ = std::fs::create_dir_all(path.parent().unwrap());
+        let _ = std::fs::copy(&old, &path);
+    }
+    path
 }
 
 fn load_done_map() -> DoneMap {
@@ -81,15 +88,34 @@ pub fn set_done(date: NaiveDate, idx: usize, done: bool) -> Result<()> {
     let path = state_path();
     std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| format!("creating state dir: {e}"))?;
     std::fs::write(&path, serde_json::to_string(&map).unwrap()).map_err(|e| format!("writing {path:?}: {e}"))?;
-    if date == Local::now().date_naive() {
+    if date == prayer_day(Local::now()) {
         mirror_today()?;
     }
     Ok(())
 }
 
-/// Copies today's done list into kscreenlockerrc for the lock screen.
+/// The date a moment belongs to for check-offs. The day starts at Imsak, not
+/// midnight, so between midnight and Imsak it is still yesterday's day.
+pub fn prayer_day(now: DateTime<Local>) -> NaiveDate {
+    let today = now.date_naive();
+    let fmt = |d: NaiveDate| d.format("%Y-%m-%d").to_string();
+    let yesterday = today - TimeDelta::days(1);
+    if let Some(store) = load_store() {
+        let imsak = store
+            .days
+            .iter()
+            .find(|d| d.d == fmt(today))
+            .and_then(|d| NaiveTime::parse_from_str(&d.t[0], "%H:%M").ok());
+        if imsak.is_some_and(|t| now.time() < t) && store.days.iter().any(|d| d.d == fmt(yesterday)) {
+            return yesterday;
+        }
+    }
+    today
+}
+
+/// Copies the current prayer day's done list into kscreenlockerrc for the lock screen.
 pub fn mirror_today() -> Result<()> {
-    let today = Local::now().date_naive();
+    let today = prayer_day(Local::now());
     let value = serde_json::json!({ "d": today.format("%Y-%m-%d").to_string(), "p": done_on(today) }).to_string();
     if read_cfg("Done").as_deref() != Some(value.as_str()) {
         write_cfg("Done", &value)?;
@@ -99,7 +125,7 @@ pub fn mirror_today() -> Result<()> {
 
 /// The prayer whose time is currently in effect, or the latest one today.
 pub fn latest_prayer(now: DateTime<Local>) -> Result<usize> {
-    let today = todays_times(now.date_naive())?;
+    let today = times_for(prayer_day(now))?;
     PRAYERS
         .into_iter()
         .rev()
@@ -107,10 +133,10 @@ pub fn latest_prayer(now: DateTime<Local>) -> Result<usize> {
         .ok_or_else(|| "no prayer time has started yet today".to_string())
 }
 
-fn todays_times(date: NaiveDate) -> Result<[DateTime<Local>; 7]> {
-    let store = load_store().ok_or("no cached data yet, run `solat-lock sync` first")?;
+pub fn times_for(date: NaiveDate) -> Result<[DateTime<Local>; 7]> {
+    let store = load_store().ok_or("no cached data yet, run `solat sync` first")?;
     let key = date.format("%Y-%m-%d").to_string();
-    let day = store.days.iter().find(|d| d.d == key).ok_or("today is not in the cache, run `solat-lock sync`")?;
+    let day = store.days.iter().find(|d| d.d == key).ok_or("today is not in the cache, run `solat sync`")?;
     let mut out = [Local::now(); 7];
     for (slot, t) in out.iter_mut().zip(&day.t) {
         let t = NaiveTime::parse_from_str(t, "%H:%M").map_err(|e| format!("bad time {t:?}: {e}"))?;
@@ -137,7 +163,20 @@ const PATH: &str = "/org/freedesktop/Notifications";
 struct Ask {
     id: u32,
     next: DateTime<Local>,
+    /// Pre-deadline warnings already sent: 0 none, 1 at 10 min, 2 at 5 min.
+    warn: u8,
 }
+
+#[derive(Clone, Copy)]
+enum Kind {
+    Start,
+    Reminder,
+    /// The next prayer time is close (level 1 = 10 min, 2 = 5 min).
+    Warn(u8),
+}
+
+/// Minutes before the end of a prayer's window at which we warn.
+const WARN_MINS: [i64; 2] = [10, 5];
 
 fn proxy(conn: &Connection) -> zbus::Result<Proxy<'static>> {
     Proxy::new(conn, DEST, PATH, DEST)
@@ -155,20 +194,30 @@ fn listen_actions(conn: Connection, tx: Sender<(u32, String)>) {
     });
 }
 
-fn send(p: &Proxy, replaces: u32, i: usize, date: NaiveDate, at: DateTime<Local>, reminder: bool) -> zbus::Result<u32> {
+fn send(p: &Proxy, replaces: u32, i: usize, date: NaiveDate, at: DateTime<Local>, kind: Kind) -> zbus::Result<u32> {
     let en = english();
     let name = display_name(i, date, en);
     let time = at.format("%H:%M");
+    let next_name = display_name(if i == 1 { 2 } else { i + 1 }, date, en);
+    let reminder = matches!(kind, Kind::Reminder);
     let (summary, body, yes, later) = if en {
         (
-            if reminder { format!("Reminder: {name}") } else { format!("{name} time ({time})") },
+            match kind {
+                Kind::Warn(l) => format!("{next_name} in {} min", WARN_MINS[l as usize - 1]),
+                _ if reminder => format!("Reminder: {name}"),
+                _ => format!("{name} time ({time})"),
+            },
             format!("Have you prayed {name}?"),
             "Prayed ✓",
             "Remind me later",
         )
     } else {
         (
-            if reminder { format!("Peringatan: {name}") } else { format!("Masuk waktu {name} ({time})") },
+            match kind {
+                Kind::Warn(l) => format!("{next_name} dalam {} minit", WARN_MINS[l as usize - 1]),
+                _ if reminder => format!("Peringatan: {name}"),
+                _ => format!("Masuk waktu {name} ({time})"),
+            },
             format!("Sudah solat {name}?"),
             "Sudah solat ✓",
             "Ingatkan nanti",
@@ -207,7 +256,7 @@ pub fn daemon() -> Result<()> {
                     match action.as_str() {
                         "done" => {
                             if let Err(e) = set_done(key.0, key.1, true) {
-                                eprintln!("solat-lock: {e}");
+                                eprintln!("solat: {e}");
                             }
                             close(&p, id);
                             asks.remove(&key);
@@ -226,7 +275,7 @@ pub fn daemon() -> Result<()> {
         }
 
         let now = Local::now();
-        let today = now.date_naive();
+        let today = prayer_day(now);
         if mirrored_for != Some(today) && mirror_today().is_ok() {
             mirrored_for = Some(today);
         }
@@ -244,7 +293,7 @@ pub fn daemon() -> Result<()> {
             asks.clear();
             continue;
         }
-        let Ok(times) = todays_times(today) else { continue };
+        let Ok(times) = times_for(today) else { continue };
         let done = done_on(today);
         for i in PRAYERS {
             let key = (today, i);
@@ -257,16 +306,29 @@ pub fn daemon() -> Result<()> {
             if now < times[i] {
                 continue;
             }
-            let (replaces, reminder) = match asks.get(&key) {
-                None => (0, false),
-                Some(a) if now >= a.next => (a.id, true),
+            // Warn shortly before the next prayer time (not for Isyak, whose
+            // window just ends late at night).
+            let left = window_end(i, &times) - now;
+            let level = if i == 6 {
+                0
+            } else if left <= TimeDelta::minutes(WARN_MINS[1]) {
+                2
+            } else if left <= TimeDelta::minutes(WARN_MINS[0]) {
+                1
+            } else {
+                0
+            };
+            let (replaces, kind, warn) = match asks.get(&key) {
+                None => (0, if level > 0 { Kind::Warn(level) } else { Kind::Start }, level),
+                Some(a) if level > a.warn => (a.id, Kind::Warn(level), level),
+                Some(a) if now >= a.next => (a.id, Kind::Reminder, a.warn),
                 Some(_) => continue,
             };
-            match send(&p, replaces, i, today, times[i], reminder) {
+            match send(&p, replaces, i, today, times[i], kind) {
                 Ok(id) => {
-                    asks.insert(key, Ask { id, next: now + remind_every() });
+                    asks.insert(key, Ask { id, next: now + remind_every(), warn });
                 }
-                Err(e) => eprintln!("solat-lock: notify failed: {e}"),
+                Err(e) => eprintln!("solat: notify failed: {e}"),
             }
         }
     }

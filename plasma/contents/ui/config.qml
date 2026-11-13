@@ -53,7 +53,7 @@ Kirigami.FormLayout {
             const s = root.store;
             if (s && s.zone === root.cfg_Zone && s.days.length > 0)
                 return "Data cached until " + s.days[s.days.length - 1].d + " (fetched " + s.fetched + ").";
-            return "After applying, the solat-lock service downloads times for this zone. You can also run: solat-lock sync";
+            return "After applying, the solat service downloads times for this zone. You can also run: solat sync";
         }
     }
 

@@ -34,15 +34,15 @@ WallpaperItem {
                 return [];
             }
         }
-        return d.d === isoDate(now) ? d.p : [];
+        return d.d === dayKey ? d.p : [];
     }
     readonly property var prayerKeys: ["", "subuh", "", "zohor", "asar", "maghrib", "isyak"]
 
     function setDone(i, value) {
         const list = done.filter(p => p !== i);
         if (value) list.push(i);
-        localDone = { d: isoDate(now), p: list };
-        runner.connectSource('PATH="$HOME/.cargo/bin:$PATH" solat-lock ' + (value ? "done " : "undo ") + prayerKeys[i]);
+        localDone = { d: dayKey, p: list };
+        runner.connectSource('PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH" solat ' + (value ? "done " : "undo ") + prayerKeys[i]);
     }
 
     P5Support.DataSource {
@@ -54,8 +54,8 @@ WallpaperItem {
 
     property date now: new Date()
 
-    // Index into store.days for the current date, -1 if missing.
-    readonly property int todayIndex: {
+    // Index into store.days for the calendar date, -1 if missing.
+    readonly property int realIndex: {
         if (stale) return -1;
         const key = isoDate(now);
         for (let i = 0; i < store.days.length; i++) {
@@ -63,8 +63,14 @@ WallpaperItem {
         }
         return -1;
     }
+    // The prayer day runs from Imsak to the next Imsak, so between midnight
+    // and Imsak it is still yesterday's day (and its check marks).
+    readonly property int todayIndex: realIndex > 0 && toDate(store.days[realIndex].d, store.days[realIndex].t[0]) > now
+        ? realIndex - 1 : realIndex
+    readonly property string dayKey: today ? today.d : isoDate(now)
     readonly property var today: todayIndex >= 0 ? store.days[todayIndex] : null
-    readonly property bool isFriday: now.getDay() === 5
+    readonly property int dayWeekday: today ? toDate(today.d, "00:00").getDay() : now.getDay()
+    readonly property bool isFriday: dayWeekday === 5
 
     readonly property var namesMs: ["Imsak", "Subuh", "Syuruk", "Zohor", "Asar", "Maghrib", "Isyak"]
     readonly property var namesEn: ["Imsak", "Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"]
@@ -98,7 +104,7 @@ WallpaperItem {
         return idx === 2 ? -1 : idx;
     }
 
-    // Whole days of cached times left after today. solat-lock refetches when
+    // Whole days of cached times left after today. solat refetches when
     // fewer than 14 remain, so a low number means syncing has been failing.
     readonly property int daysLeft: store && !stale && store.days.length > 0
         ? Math.round((toDate(store.days[store.days.length - 1].d, "00:00") - toDate(isoDate(now), "00:00")) / 86400000)
@@ -133,7 +139,7 @@ WallpaperItem {
     function countdownText() {
         if (!next) return "";
         const mins = Math.ceil((next.at - now) / 60000);
-        const name = prayerName(next.index, next.tomorrow ? (now.getDay() + 1) % 7 === 5 : isFriday);
+        const name = prayerName(next.index, next.tomorrow ? (dayWeekday + 1) % 7 === 5 : isFriday);
         if (mins <= 1) return english ? name + " in under a minute" : name + " kurang seminit lagi";
         const h = Math.floor(mins / 60), m = mins % 60;
         let span;
@@ -304,8 +310,8 @@ WallpaperItem {
             Text {
                 visible: root.today === null || root.stale
                 text: root.english
-                    ? "No prayer times cached for " + root.cfg.Zone + ".\nRun: solat-lock sync"
-                    : "Tiada data waktu solat untuk " + root.cfg.Zone + ".\nJalankan: solat-lock sync"
+                    ? "No prayer times cached for " + root.cfg.Zone + ".\nRun: solat sync"
+                    : "Tiada data waktu solat untuk " + root.cfg.Zone + ".\nJalankan: solat sync"
                 color: "#ffb4a2"
                 font.pixelSize: 14 * card.u
             }
@@ -313,8 +319,8 @@ WallpaperItem {
             Text {
                 visible: root.lowData
                 text: root.english
-                    ? "⚠ Times only cached for " + root.daysLeft + " more day(s) — sync has been failing.\nCheck internet, then run: solat-lock sync"
-                    : "⚠ Data hanya untuk " + root.daysLeft + " hari lagi — kemas kini gagal.\nSemak internet, kemudian jalankan: solat-lock sync"
+                    ? "⚠ Times only cached for " + root.daysLeft + " more day(s) — sync has been failing.\nCheck internet, then run: solat sync"
+                    : "⚠ Data hanya untuk " + root.daysLeft + " hari lagi — kemas kini gagal.\nSemak internet, kemudian jalankan: solat sync"
                 color: "#ffd479"
                 font.pixelSize: 14 * card.u
                 wrapMode: Text.WordWrap

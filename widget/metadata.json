@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [{ "Name": "q4t" }],
+        "Category": "Date and Time",
+        "Description": "Next prayer, countdown and check-offs from JAKIM e-solat",
+        "Icon": "clock",
+        "Id": "solat.widget",
+        "License": "GPL-2.0-or-later",
+        "Name": "Waktu Solat (JAKIM)",
+        "Version": "1.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

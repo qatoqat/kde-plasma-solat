@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs solat-lock for the current user from source (cargo + ~/.local).
+# Installs solat for the current user from source (cargo + ~/.local).
 # On Arch, prefer the package: cd packaging/arch && makepkg -si
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -12,10 +12,16 @@ else
     kpackagetool6 -t Plasma/Wallpaper -i plasma
 fi
 
+if kpackagetool6 -t Plasma/Applet -s solat.widget >/dev/null 2>&1; then
+    kpackagetool6 -t Plasma/Applet -u widget
+else
+    kpackagetool6 -t Plasma/Applet -i widget
+fi
+
 units="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 mkdir -p "$units"
 for unit in systemd/*; do
-    sed "s|/usr/bin/solat-lock|$HOME/.cargo/bin/solat-lock|" "$unit" > "$units/$(basename "$unit")"
+    sed "s|/usr/bin/solat|$HOME/.cargo/bin/solat|" "$unit" > "$units/$(basename "$unit")"
 done
-"$HOME/.cargo/bin/solat-lock" setup
-systemctl --user restart solat-lock-notify.service
+"$HOME/.cargo/bin/solat" setup
+systemctl --user restart solat-notify.service

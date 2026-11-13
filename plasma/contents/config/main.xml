@@ -38,11 +38,11 @@
       <default>30</default>
     </entry>
     <entry name="Done" type="String">
-      <label>Today's done prayers, written by solat-lock</label>
+      <label>Today's done prayers, written by solat</label>
       <default></default>
     </entry>
     <entry name="PrayerData" type="String">
-      <label>Timetable JSON written by the solat-lock tool</label>
+      <label>Timetable JSON written by the solat tool</label>
       <default></default>
     </entry>
   </group>
