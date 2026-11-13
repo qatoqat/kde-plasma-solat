@@ -14,8 +14,8 @@ for src, name in [("widget", "solat.widget.plasmoid"), ("plasma", "solat.lockscr
     out = os.path.join(OUT, name)
     base = os.path.join(ROOT, src)
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for d, dirs, files in sorted(os.walk(base)):
-            dirs[:] = [x for x in dirs if x not in SKIP_DIRS]
+        for d, dirs, files in os.walk(base):
+            dirs[:] = sorted(x for x in dirs if x not in SKIP_DIRS)
             for f in sorted(files):
                 if f in SKIP:
                     continue
