@@ -44,6 +44,9 @@ Or download `solat.widget.plasmoid` (and optionally `solat.lockscreen.plasmoid`)
 
 1. Right-click a panel → **Add Widgets** → **Waktu Solat**.
 2. Right-click the widget → **Configure** (or the gear in its popup) and pick your zone. The default is PRK02.
+
+<img src="docs/preview-settings.png" width="520" alt="Widget settings: state, zone, language, reminders and lock screen">
+
 3. Optional: tick **Show prayer times on the lock screen** in the same dialog. Background image, dimming and position are set in System Settings → Screen Locking → Appearance.
 
 Upgrading from the old `solat-lock` package: settings and today's check marks are imported on first start. The old `solat` command and systemd services are gone; `systemctl --user disable --now solat.timer solat.path solat-notify.service` removes the leftovers.
