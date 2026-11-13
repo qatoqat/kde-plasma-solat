@@ -1,6 +1,6 @@
 # Maintainer: Qatoqat <39856402+qatoqat@users.noreply.github.com>
 pkgname=kde-plasma-solat
-pkgver=0.2.2
+pkgver=0.2.3
 pkgrel=1
 pkgdesc="JAKIM (e-solat.gov.my) prayer times with check-offs and reminders on the KDE Plasma lock screen and panel"
 arch=('x86_64' 'aarch64')

@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasmoid
 import org.kde.plasma.components as PlasmaComponents3
+import org.kde.plasma.extras as PlasmaExtras
 import org.kde.plasma.plasma5support as P5Support
 
 // Panel widget: compact view shows the next prayer, the popup lists the day
@@ -26,6 +27,12 @@ PlasmoidItem {
     function toDate(d, hhmm) {
         const p = d.split("-"), t = hhmm.split(":");
         return new Date(+p[0], +p[1] - 1, +p[2], +t[0], +t[1]);
+    }
+    // "2026-10-08 20:55" -> formatted with the system locale (date and time).
+    function fetchedText(f) {
+        const m = /^(\d+)-(\d+)-(\d+) (\d+):(\d+)/.exec(f);
+        if (!m) return f;
+        return Qt.formatDateTime(new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]), Qt.locale(), Locale.ShortFormat);
     }
     function isFri(d) { return toDate(d, "00:00").getDay() === 5; }
     function nameOf(i, d) {
@@ -121,31 +128,63 @@ PlasmoidItem {
         }
     }
 
+    // Pinned = popup stays open when it loses focus (same as the System Tray).
+    property bool pinned: false
+    hideOnWindowDeactivate: !pinned
+
     fullRepresentation: ColumnLayout {
         Layout.minimumWidth: Kirigami.Units.gridUnit * 16
         Layout.minimumHeight: implicitHeight
-        spacing: Kirigami.Units.smallSpacing
+        spacing: 0
 
-        RowLayout {
+        PlasmaExtras.PlasmoidHeading {
             Layout.fillWidth: true
-            Kirigami.Heading {
-                level: 3
-                Layout.fillWidth: true
-                text: (root.english ? "Prayer Times" : "Waktu Solat") + (root.st ? " · " + root.st.zone : "")
-            }
-            PlasmaComponents3.ToolButton {
-                icon.name: "configure"
-                display: PlasmaComponents3.AbstractButton.IconOnly
-                text: root.english ? "Settings" : "Tetapan"
-                PlasmaComponents3.ToolTip.text: text
-                PlasmaComponents3.ToolTip.visible: hovered
-                // Zone, language, 12h and reminders live in Screen Locking → Configure Appearance.
-                onClicked: {
-                    runner.connectSource("systemsettings kcm_screenlocker");
-                    root.expanded = false;
+            contentItem: RowLayout {
+                spacing: Kirigami.Units.smallSpacing
+                PlasmaExtras.Heading {
+                    level: 1
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                    text: (root.english ? "Prayer Times" : "Waktu Solat") + (root.st ? " · " + root.st.zone : "")
+                }
+                PlasmaComponents3.ToolButton {
+                    icon.name: "internet-web-browser"
+                    display: PlasmaComponents3.AbstractButton.IconOnly
+                    text: root.english ? "Open e-solat.gov.my" : "Buka e-solat.gov.my"
+                    PlasmaComponents3.ToolTip.text: text
+                    PlasmaComponents3.ToolTip.visible: hovered
+                    onClicked: Qt.openUrlExternally("https://www.e-solat.gov.my")
+                }
+                PlasmaComponents3.ToolButton {
+                    icon.name: "configure"
+                    display: PlasmaComponents3.AbstractButton.IconOnly
+                    text: root.english ? "Settings" : "Tetapan"
+                    PlasmaComponents3.ToolTip.text: text
+                    PlasmaComponents3.ToolTip.visible: hovered
+                    // Zone, language, 12h and reminders live in Screen Locking → Configure Appearance.
+                    onClicked: {
+                        runner.connectSource("systemsettings kcm_screenlocker");
+                        root.expanded = false;
+                    }
+                }
+                PlasmaComponents3.ToolButton {
+                    icon.name: "window-pin"
+                    display: PlasmaComponents3.AbstractButton.IconOnly
+                    checkable: true
+                    checked: root.pinned
+                    onToggled: root.pinned = checked
+                    text: root.english ? "Keep Open" : "Kekalkan terbuka"
+                    PlasmaComponents3.ToolTip.text: text
+                    PlasmaComponents3.ToolTip.visible: hovered
                 }
             }
         }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.margins: Kirigami.Units.largeSpacing
+            spacing: Kirigami.Units.smallSpacing
+
         PlasmaComponents3.Label {
             visible: root.day !== null
             opacity: 0.7
@@ -213,7 +252,7 @@ PlasmoidItem {
             Layout.topMargin: Kirigami.Units.smallSpacing
             opacity: 0.6
             font: Kirigami.Theme.smallFont
-            text: root.st ? (root.english ? "Last updated: " : "Waktu kemaskini: ") + root.st.fetched : ""
+            text: root.st ? (root.english ? "Last updated: " : "Waktu kemaskini: ") + root.fetchedText(root.st.fetched) : ""
         }
         PlasmaComponents3.Label {
             visible: root.day === null
@@ -221,6 +260,7 @@ PlasmoidItem {
             wrapMode: Text.WordWrap
             color: Kirigami.Theme.negativeTextColor
             text: "Tiada data / no data. Run: solat sync"
+        }
         }
     }
 }
