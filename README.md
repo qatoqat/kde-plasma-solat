@@ -2,7 +2,10 @@
 
 Malaysian prayer times from [JAKIM e-solat](https://www.e-solat.gov.my) for KDE Plasma 6: a panel widget and a lock screen.
 
-<img src="docs/preview.png" width="420" alt="Prayer times panel on the lock screen">
+<p>
+  <img src="docs/preview-widget.png" width="300" alt="Panel widget popup with the day's prayer times">
+  <img src="docs/preview-lockscreen.png" width="350" alt="Prayer times on the lock screen">
+</p>
 
 - **Panel widget** with the next prayer and a countdown; click for the full day, tick prayers off ✓, open e-solat, settings and a *keep open* pin
 - All 60 JAKIM zones, Malay or English names, 24h or 12h
