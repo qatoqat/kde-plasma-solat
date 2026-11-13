@@ -66,6 +66,8 @@ def main():
             lines.append(line)
         logic = "\n".join(lines)
         logic = logic[: logic.index("    // ---- views ----")] + "}\n"
+        # The test gives each widget its own config object so a finished widget can be cut off from it.
+        logic = logic.replace("readonly property var cfg: Plasmoid.configuration", "property var cfg: Plasmoid.configuration")
         logic = re.sub(r"\bcfg\.([A-Z]\w*)", lambda m: "cfg." + m.group(1)[0].lower() + m.group(1)[1:], logic)
         logic = logic.replace("property bool useCurl: false", "property bool useCurl: true")  # no real network
         with open(os.path.join(tmp, "contents/ui/main.qml"), "w", encoding="utf-8") as f:

@@ -44,11 +44,15 @@ Item {
         const c = Plasmoid.configuration;
         c.prayerData = prayerData !== undefined ? prayerData : store("PRK02", "2026-11-01", "2026-12-31");
         if (setup) setup(c);
-        const w = comp.createObject(host, { clockOverride: when });
+        const w = comp.createObject(host, { clockOverride: when, cfg: Plasmoid.configuration });
         live.push(w);
         return w;
     }
-    function cleanup() { for (const w of live) w.destroy(); live = []; }
+    function cleanup() {
+        TestHooks.accepting = false;                 // ignore whatever the dying widget does
+        for (const w of live) { w.cfg = Plasmoid.inert; w.destroy(); }
+        live = [];
+    }
     function at(w, when) { w.clockOverride = when; w.now = w.clock(); w.notifyTick(); }
     function titles() { return TestHooks.notifications.map(n => n.title); }
     function lastTitle() { const n = TestHooks.notifications; return n.length ? n[n.length - 1].title : ""; }
@@ -285,8 +289,68 @@ Item {
         section("empty import");
     }
 
+    // browsing days with the header arrows
+    function scenarioNav() {
+        let w = make("2026-11-13T12:00:00");
+        check(w.viewingToday && w.viewDay.d === "2026-11-13" && w.viewOffset === 0, "starts on the current prayer day");
+        check(w.canPrev && w.canNext, "arrows available in the middle of the cache");
+        w.shiftView(-1);
+        check(w.viewDay.d === "2026-11-12" && !w.viewingToday, "left arrow goes to the previous day");
+        w.shiftView(5);
+        check(w.viewDay.d === "2026-11-17", "right arrow moves forward");
+        check(w.day.d === "2026-11-13", "browsing does not change the current day");
+        w.shiftView(-1000);
+        check(w.viewDay.d === "2026-11-01" && !w.canPrev && w.canNext, "stops at the first cached day");
+        w.shiftView(1000);
+        check(w.viewDay.d === "2026-12-31" && w.canPrev && !w.canNext, "stops at the last cached day");
+        w.shiftView(-1000);
+        w.shiftView(3);
+        w.expanded = true; w.expanded = false;
+        check(w.viewingToday, "closing the popup returns to today");
+        // ticking a past day is saved for that day and does not touch the lock screen's current-day copy
+        TestHooks.commands = [];
+        w.shiftView(-2);
+        w.setDone(4, true, w.viewDay.d);
+        check(JSON.parse(Plasmoid.configuration.doneJson)["2026-11-11"].join() === "4", "past day tick saved under its own date");
+        check(w.viewDone.join() === "4" && w.done.length === 0, "viewed day shows its ticks, current day unaffected");
+        check(TestHooks.cmds("--key Done").filter(c => c.indexOf("kwriteconfig6") === 0).length === 0, "past day tick is not mirrored as today's");
+        w.setDone(5, true);
+        check(TestHooks.cmds("--key Done").filter(c => c.indexOf("kwriteconfig6") === 0).length === 1, "current day tick is mirrored");
+        section("day browsing");
+    }
+
+    // resync button
+    function scenarioResync() {
+        let w = make("2026-11-13T12:00:00");
+        check(TestHooks.cmds("# solatfetch:").length === 0, "precondition: cache is fresh");
+        w.resync();
+        let f = TestHooks.cmds("# solatfetch:");
+        check(f.length === 1 && f[0].indexOf("zone=PRK02") > 0, "resync downloads even though the cache is fresh");
+        check(w.syncing, "resync shows as busy");
+        w.resync();
+        check(TestHooks.cmds("# solatfetch:").length === 1, "pressing again while downloading does nothing");
+        answered = 0;
+        answerDownloads();
+        check(!w.syncing && JSON.parse(Plasmoid.configuration.prayerData).fetched !== "2026-11-01 08:00", "last sync time is refreshed");
+        section("resync");
+    }
+
+    // resync requested from the lock screen
+    function scenarioLockResync() {
+        let w = make("2026-11-13T12:00:00");
+        const cmd = TestHooks.cmds("kreadconfig6").filter(c => c.indexOf("--key ResyncRequest") > 0)[0];
+        check(cmd !== undefined, "the widget polls for lock screen resync requests");
+        TestHooks.reply(cmd, "100\n");
+        check(TestHooks.cmds("# solatfetch:").length === 0, "an old request found at startup is not acted on");
+        TestHooks.reply(cmd, "200\n");
+        check(TestHooks.cmds("# solatfetch:").length === 1, "a new request from the lock screen starts a download");
+        TestHooks.reply(cmd, "200\n");
+        check(TestHooks.cmds("# solatfetch:").length === 1, "the same request is not repeated");
+        section("lock screen resync");
+    }
+
     property int nextScenario: 0
-    readonly property var scenarios: ["scenario0", "scenario1", "scenario2", "scenario3", "scenario4", "scenario5", "scenario6", "scenario6b", "scenario7", "scenario7b", "scenario8", "scenario9", "scenario10", "scenario10b"]
+    readonly property var scenarios: ["scenario0", "scenario1", "scenario2", "scenario3", "scenario4", "scenario5", "scenario6", "scenario6b", "scenario7", "scenario7b", "scenario8", "scenario9", "scenario10", "scenario10b", "scenarioNav", "scenarioResync", "scenarioLockResync"]
 
     // One scenario per event-loop turn so destroyed widgets are really gone (QML destroy() is
     // deferred) before the next scenario changes the shared config.

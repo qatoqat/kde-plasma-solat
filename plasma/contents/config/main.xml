@@ -41,6 +41,10 @@
       <label>Today's done prayers, written by solat</label>
       <default></default>
     </entry>
+    <entry name="ResyncRequest" type="String">
+      <label>Timestamp written by the lock screen's refresh button; the panel widget acts on it</label>
+      <default></default>
+    </entry>
     <entry name="PrayerData" type="String">
       <label>Timetable JSON written by the solat tool</label>
       <default></default>

@@ -9,12 +9,12 @@ Malaysian prayer times from [JAKIM e-solat](https://www.e-solat.gov.my) for KDE 
   <img src="docs/preview-lockscreen.png" width="350" alt="Prayer times on the lock screen">
 </p>
 
-- **Panel widget** with the next prayer and a countdown; click for the full day, tick prayers off ✓, open e-solat, settings and a *keep open* pin
+- **Panel widget** with the next prayer and a countdown; click for the full day, tick prayers off ✓, browse other days with the arrows, resync on demand, open e-solat, settings and a *keep open* pin
 - All 60 JAKIM zones, Malay or English names, 24h or 12h
 - Gregorian and Hijri dates
 - Check marks reset at **Imsak**, not midnight (the day runs from Imsak to the next Imsak)
 - Notifications ask "Sudah solat?" when each prayer time starts and remind you until you mark it done, with a heads-up 10 and 5 minutes before the next prayer time if it is still unticked
-- Optional lock screen showing the same times and check marks
+- Optional lock screen showing the same times and check marks, the last update time and a refresh button
 - Works offline: about 60 days of times are cached and refreshed automatically
 
 Nothing to run by hand: the widget downloads the times, keeps the check marks, sends the reminders and feeds the lock screen itself. Everything runs inside Plasma, so there is no background service and no separate program.
@@ -51,7 +51,7 @@ Upgrading from the old `solat-lock` package: settings and today's check marks ar
 ## How it works
 
 - **`solat.widget`** (QML): downloads the timetable from e-solat (falling back to `curl` if Qt's own network stack stalls), stores it in the widget's config, tracks check marks per day, sends notifications through KDE's notification service and writes the data the lock screen needs into `kscreenlockerrc`.
-- **`solat.lockscreen`** (QML): a Plasma wallpaper plugin. The lock screen is sandboxed with no network access, so it only shows what the widget saved. Tapping a prayer there ticks it, and the widget picks the change up within about 30 seconds.
+- **`solat.lockscreen`** (QML): a Plasma wallpaper plugin. The lock screen is sandboxed with no network access, so it only shows what the widget saved. Tapping a prayer there ticks it, and the widget picks the change up within about 15 seconds. The refresh button there works the same way: it leaves a request for the widget, which does the download.
 
 KWin doesn't support `ext-session-lock`, so this doesn't replace the KDE locker. KDE still does the locking and checks your password.
 

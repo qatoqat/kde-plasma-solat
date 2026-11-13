@@ -43,6 +43,21 @@ PlasmoidItem {
     readonly property bool english: cfg.English
     readonly property string fetched: store ? store.fetched : ""
 
+    // Browsing other days with the arrows in the header; 0 = the current prayer day.
+    property int viewOffset: 0
+    readonly property int viewIdx: dayIdx < 0 ? -1 : Math.max(0, Math.min(store.days.length - 1, dayIdx + viewOffset))
+    readonly property var viewDay: viewIdx >= 0 ? store.days[viewIdx] : null
+    readonly property bool viewingToday: viewIdx === dayIdx
+    readonly property bool canPrev: viewIdx > 0
+    readonly property bool canNext: viewIdx >= 0 && viewIdx < store.days.length - 1
+    readonly property var viewDone: viewDay && doneMap[viewDay.d] ? doneMap[viewDay.d] : []
+    function shiftView(n) {
+        if (dayIdx < 0) return;
+        viewOffset = Math.max(-dayIdx, Math.min(store.days.length - 1 - dayIdx, viewOffset + n));
+    }
+    function viewStarted(i) { return viewDay && toDate(viewDay.d, viewDay.t[i]) <= now; }
+    onExpandedChanged: if (!expanded) viewOffset = 0
+
     readonly property var keys: ["", "subuh", "", "zohor", "asar", "maghrib", "isyak"]
     readonly property var namesMs: ["Imsak", "Subuh", "Syuruk", "Zohor", "Asar", "Maghrib", "Isyak"]
     readonly property var namesEn: ["Imsak", "Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"]
@@ -110,7 +125,7 @@ PlasmoidItem {
         list.sort();
         map[key] = list;
         cfg.DoneJson = JSON.stringify(Logic.pruneDone(map, Logic.isoDate(clock()), 60));
-        writeLock("Done", JSON.stringify({ d: key, p: list }));
+        if (day && key === day.d) writeLock("Done", JSON.stringify({ d: key, p: list }));
         if (value) dropAsk(key + ":" + i);
     }
 
@@ -123,6 +138,8 @@ PlasmoidItem {
             disconnectSource(source);
             if (source.indexOf("# solatfetch:") > 0)
                 root.curlDone(source, data);
+            else if (source.indexOf("kreadconfig6") === 0 && source.indexOf("--key ResyncRequest") > 0)
+                root.adoptResync((data["stdout"] || "").trim());
             else if (source.indexOf("kreadconfig6") === 0 && source.indexOf("--key Done") > 0)
                 root.adoptLockScreenDone((data["stdout"] || "").trim());
             else if (source.indexOf("kreadconfig6") === 0 && source.indexOf("# Migrate:") > 0)
@@ -152,6 +169,16 @@ PlasmoidItem {
     // The lock screen can tick prayers itself; pick that up if it changed.
     function pollLockScreen() {
         runner.connectSource("kreadconfig6 " + lockGroup + " --key Done");
+        runner.connectSource("kreadconfig6 " + lockGroup + " --key ResyncRequest");
+    }
+    function resync() { sync(true); }
+    // The lock screen cannot download; its refresh button writes a timestamp that we act on.
+    property string lastResyncRequest: "?"
+    function adoptResync(value) {
+        if (lastResyncRequest === "?") { lastResyncRequest = value; return; }   // first read is the baseline
+        if (value === "" || value === lastResyncRequest) return;
+        lastResyncRequest = value;
+        resync();
     }
     function adoptLockScreenDone(value) {
         if (!value || value === mirrored["Done"] || !day) return;
@@ -354,7 +381,7 @@ PlasmoidItem {
     }
 
     Timer { interval: 15000; running: true; repeat: true; onTriggered: root.now = root.clock() }
-    Timer { interval: 30000; running: true; repeat: true; onTriggered: { root.pollLockScreen(); if (root.cfg.Migrated) root.mirrorAll(); } }
+    Timer { interval: 15000; running: true; repeat: true; onTriggered: { root.pollLockScreen(); if (root.cfg.Migrated) root.mirrorAll(); } }
     // One-time import of Zone, language, 12h and reminder settings that earlier
     // versions kept in the lock screen config, so upgrading changes nothing.
     property int migrating: 0
@@ -422,42 +449,84 @@ PlasmoidItem {
 
         PlasmaExtras.PlasmoidHeading {
             Layout.fillWidth: true
-            contentItem: RowLayout {
+            contentItem: ColumnLayout {
                 spacing: Kirigami.Units.smallSpacing
-                PlasmaExtras.Heading {
-                    level: 1
+                RowLayout {
                     Layout.fillWidth: true
-                    elide: Text.ElideRight
-                    text: (root.english ? "Prayer Times" : "Waktu Solat") + " · " + root.cfg.Zone
-                }
-                PlasmaComponents3.ToolButton {
-                    icon.name: "applications-internet"
-                    display: PlasmaComponents3.AbstractButton.IconOnly
-                    text: root.english ? "Open e-solat.gov.my" : "Buka e-solat.gov.my"
-                    PlasmaComponents3.ToolTip.text: text
-                    PlasmaComponents3.ToolTip.visible: hovered
-                    onClicked: Qt.openUrlExternally("https://www.e-solat.gov.my")
-                }
-                PlasmaComponents3.ToolButton {
-                    icon.name: "configure"
-                    display: PlasmaComponents3.AbstractButton.IconOnly
-                    text: root.english ? "Settings" : "Tetapan"
-                    PlasmaComponents3.ToolTip.text: text
-                    PlasmaComponents3.ToolTip.visible: hovered
-                    onClicked: {
-                        const a = Plasmoid.internalAction("configure");
-                        if (a) a.trigger();
+                    spacing: Kirigami.Units.smallSpacing
+                    PlasmaExtras.Heading {
+                        level: 1
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        text: (root.english ? "Prayer Times" : "Waktu Solat") + " · " + root.cfg.Zone
+                    }
+                    PlasmaComponents3.ToolButton {
+                        icon.name: "applications-internet"
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        text: root.english ? "Open e-solat.gov.my" : "Buka e-solat.gov.my"
+                        PlasmaComponents3.ToolTip.text: text
+                        PlasmaComponents3.ToolTip.visible: hovered
+                        onClicked: Qt.openUrlExternally("https://www.e-solat.gov.my")
+                    }
+                    PlasmaComponents3.ToolButton {
+                        icon.name: "configure"
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        text: root.english ? "Settings" : "Tetapan"
+                        PlasmaComponents3.ToolTip.text: text
+                        PlasmaComponents3.ToolTip.visible: hovered
+                        onClicked: {
+                            const a = Plasmoid.internalAction("configure");
+                            if (a) a.trigger();
+                        }
+                    }
+                    PlasmaComponents3.ToolButton {
+                        icon.name: "window-pin"
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        checkable: true
+                        checked: root.pinned
+                        onToggled: root.pinned = checked
+                        text: root.english ? "Keep Open" : "Kekalkan terbuka"
+                        PlasmaComponents3.ToolTip.text: text
+                        PlasmaComponents3.ToolTip.visible: hovered
                     }
                 }
-                PlasmaComponents3.ToolButton {
-                    icon.name: "window-pin"
-                    display: PlasmaComponents3.AbstractButton.IconOnly
-                    checkable: true
-                    checked: root.pinned
-                    onToggled: root.pinned = checked
-                    text: root.english ? "Keep Open" : "Kekalkan terbuka"
-                    PlasmaComponents3.ToolTip.text: text
-                    PlasmaComponents3.ToolTip.visible: hovered
+                // Date with arrows to browse the cached days; click the date to come back to today.
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: root.viewDay !== null
+                    PlasmaComponents3.ToolButton {
+                        icon.name: "go-previous"
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        enabled: root.canPrev
+                        text: root.english ? "Previous day" : "Hari sebelumnya"
+                        PlasmaComponents3.ToolTip.text: text
+                        PlasmaComponents3.ToolTip.visible: hovered
+                        onClicked: root.shiftView(-1)
+                    }
+                    PlasmaComponents3.Label {
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                        color: root.viewingToday ? Kirigami.Theme.textColor : Kirigami.Theme.highlightColor
+                        opacity: root.viewingToday ? 0.7 : 1
+                        text: root.viewDay ? root.daysMs[root.toDate(root.viewDay.d, "00:00").getDay()] + ", " + (+root.viewDay.d.split("-")[2]) + " "
+                              + root.monthsMs[+root.viewDay.d.split("-")[1] - 1] + " " + root.viewDay.d.split("-")[0] : ""
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !root.viewingToday
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.viewOffset = 0
+                        }
+                    }
+                    PlasmaComponents3.ToolButton {
+                        icon.name: "go-next"
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        enabled: root.canNext
+                        text: root.english ? "Next day" : "Hari seterusnya"
+                        PlasmaComponents3.ToolTip.text: text
+                        PlasmaComponents3.ToolTip.visible: hovered
+                        onClicked: root.shiftView(1)
+                    }
                 }
             }
         }
@@ -467,21 +536,14 @@ PlasmoidItem {
             Layout.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.smallSpacing
 
-            PlasmaComponents3.Label {
-                visible: root.day !== null
-                opacity: 0.7
-                text: root.day ? root.daysMs[root.toDate(root.day.d, "00:00").getDay()] + ", " + (+root.day.d.split("-")[2]) + " "
-                      + root.monthsMs[+root.day.d.split("-")[1] - 1] + " " + root.day.d.split("-")[0] : ""
-            }
-
             Repeater {
-                model: root.day ? 7 : 0
+                model: root.viewDay ? 7 : 0
                 delegate: Rectangle {
                     id: item
                     required property int index
-                    readonly property bool isCurrent: root.current === index
-                    readonly property bool started: root.startedAt(index)
-                    readonly property bool isDone: root.done.indexOf(index) >= 0
+                    readonly property bool isCurrent: root.viewingToday && root.current === index
+                    readonly property bool started: root.viewStarted(index)
+                    readonly property bool isDone: root.viewDone.indexOf(index) >= 0
                     readonly property bool checkable: root.keys[index] !== "" && started
                     Layout.fillWidth: true
                     implicitHeight: Kirigami.Units.gridUnit * 2
@@ -493,7 +555,7 @@ PlasmoidItem {
                         anchors.fill: parent
                         enabled: item.checkable
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: root.setDone(item.index, !item.isDone)
+                        onClicked: root.setDone(item.index, !item.isDone, root.viewDay.d)
                     }
                     RowLayout {
                         anchors.fill: parent
@@ -501,12 +563,12 @@ PlasmoidItem {
                         anchors.rightMargin: Kirigami.Units.largeSpacing
                         PlasmaComponents3.Label {
                             Layout.fillWidth: true
-                            text: root.nameOf(item.index, root.day.d)
+                            text: root.nameOf(item.index, root.viewDay.d)
                             font.weight: item.isCurrent ? Font.Bold : Font.Normal
                             opacity: item.started && !item.isCurrent ? 0.5 : 1
                         }
                         PlasmaComponents3.Label {
-                            text: root.fmt(root.day.t[item.index])
+                            text: root.fmt(root.viewDay.t[item.index])
                             font.weight: item.isCurrent ? Font.Bold : Font.Normal
                             font.features: { "tnum": 1 }
                             opacity: item.started && !item.isCurrent ? 0.5 : 1
@@ -523,20 +585,6 @@ PlasmoidItem {
                 }
             }
             PlasmaComponents3.Label {
-                visible: root.next !== null
-                Layout.topMargin: Kirigami.Units.smallSpacing
-                color: Kirigami.Theme.highlightColor
-                font.weight: Font.DemiBold
-                text: root.next ? root.nameOf(root.next.index, root.next.d) + (root.english ? " in " : " dalam ") + root.countdown : ""
-            }
-            PlasmaComponents3.Label {
-                visible: root.fetched !== ""
-                Layout.topMargin: Kirigami.Units.smallSpacing
-                opacity: 0.6
-                font: Kirigami.Theme.smallFont
-                text: (root.english ? "Last updated: " : "Waktu kemaskini: ") + root.fetchedText(root.fetched)
-            }
-            PlasmaComponents3.Label {
                 visible: root.day === null
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
@@ -544,6 +592,43 @@ PlasmoidItem {
                 text: root.syncing ? (root.english ? "Downloading prayer times…" : "Memuat turun waktu solat…")
                     : root.syncError !== "" ? (root.english ? "Could not download times: " : "Gagal memuat turun: ") + root.syncError
                     : (root.english ? "No prayer times yet." : "Tiada data waktu solat.")
+            }
+        }
+
+        PlasmaExtras.PlasmoidHeading {
+            Layout.fillWidth: true
+            location: PlasmaExtras.PlasmoidHeading.Location.Footer
+            contentItem: RowLayout {
+                spacing: Kirigami.Units.smallSpacing
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    PlasmaComponents3.Label {
+                        visible: root.next !== null
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        color: Kirigami.Theme.highlightColor
+                        font.weight: Font.DemiBold
+                        text: root.next ? root.nameOf(root.next.index, root.next.d) + (root.english ? " in " : " dalam ") + root.countdown : ""
+                    }
+                    PlasmaComponents3.Label {
+                        visible: root.fetched !== ""
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        opacity: 0.6
+                        font: Kirigami.Theme.smallFont
+                        text: (root.english ? "Last updated: " : "Waktu kemaskini: ") + root.fetchedText(root.fetched)
+                    }
+                }
+                PlasmaComponents3.ToolButton {
+                    icon.name: "view-refresh"
+                    display: PlasmaComponents3.AbstractButton.IconOnly
+                    enabled: !root.syncing
+                    text: root.syncing ? (root.english ? "Updating…" : "Mengemas kini…") : (root.english ? "Update now" : "Kemas kini sekarang")
+                    PlasmaComponents3.ToolTip.text: text
+                    PlasmaComponents3.ToolTip.visible: hovered
+                    onClicked: root.resync()
+                }
             }
         }
     }

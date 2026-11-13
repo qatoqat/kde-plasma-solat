@@ -18,6 +18,18 @@ QtObject {
         property string prayerData: ""
         property string doneJson: "{}"
     }
+    // Finished widgets are switched onto this so later config changes do not reach them.
+    property QtObject inert: QtObject {
+        property string zone: "PRK02"
+        property bool english: false
+        property bool use12h: false
+        property bool notify: false
+        property int remindEvery: 30
+        property bool lockScreen: false
+        property bool migrated: false
+        property string prayerData: ""
+        property string doneJson: "{}"
+    }
     function reset() {
         const c = configuration;
         c.zone = "PRK02"; c.english = false; c.use12h = false; c.notify = true; c.remindEvery = 30;

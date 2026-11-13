@@ -6,6 +6,7 @@ QtObject {
     property var connectedSources: []
     signal newData(string source, var data)
     function connectSource(source) {
+        if (!TestHooks.accepting) return;
         TestHooks.runner = this;
         TestHooks.commands = TestHooks.commands.concat([source]);
     }

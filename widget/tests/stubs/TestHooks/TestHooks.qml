@@ -5,8 +5,9 @@ import QtQuick
 QtObject {
     property var commands: []        // every shell command the widget asked the executable engine to run
     property var notifications: []   // every Notification the widget sent
+    property bool accepting: true   // false while a finished widget is being torn down
     property var runner: null        // the widget's DataSource instance
-    function reset() { commands = []; notifications = []; runner = null; }
+    function reset() { commands = []; notifications = []; runner = null; accepting = true; }
     // Commands issued so far that contain `text`.
     function cmds(text) { return commands.filter(c => c.indexOf(text) >= 0); }
     // Pretend the shell finished `source` with this output.

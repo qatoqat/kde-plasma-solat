@@ -46,6 +46,24 @@ WallpaperItem {
         runner.connectSource("kwriteconfig6 --file kscreenlockerrc --group Greeter --group Wallpaper --group solat.lockscreen --group General --key Done '" + json + "'");
     }
 
+    // Last time the widget downloaded times, in the system locale.
+    readonly property string fetchedText: {
+        if (!store || !store.fetched) return "";
+        const m = /^(\d+)-(\d+)-(\d+) (\d+):(\d+)/.exec(store.fetched);
+        if (!m) return store.fetched;
+        return Qt.formatDateTime(new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]), Qt.locale(), Locale.ShortFormat);
+    }
+    property bool resyncSent: false
+    // The locked session has no network access: ask the panel widget to download, via a timestamp
+    // it polls for in kscreenlockerrc.
+    function requestResync() {
+        if (resyncSent) return;
+        resyncSent = true;
+        resyncReset.restart();
+        runner.connectSource("kwriteconfig6 --file kscreenlockerrc --group Greeter --group Wallpaper --group solat.lockscreen --group General --key ResyncRequest " + Date.now());
+    }
+    Timer { id: resyncReset; interval: 60000; onTriggered: root.resyncSent = false }
+
     P5Support.DataSource {
         id: runner
         engine: "executable"
@@ -306,6 +324,45 @@ WallpaperItem {
                 font.pixelSize: 17 * card.u
                 font.weight: Font.DemiBold
                 Layout.topMargin: 8 * card.u
+            }
+
+            RowLayout {
+                Layout.topMargin: 6 * card.u
+                Layout.fillWidth: true
+                visible: root.fetchedText !== ""
+                spacing: 12 * card.u
+                Text {
+                    Layout.fillWidth: true
+                    text: (root.english ? "Last updated: " : "Waktu kemaskini: ") + root.fetchedText
+                    color: Qt.rgba(1, 1, 1, 0.6)
+                    font.pixelSize: 13 * card.u
+                    elide: Text.ElideRight
+                }
+                Rectangle {
+                    id: resyncButton
+                    implicitWidth: resyncLabel.implicitWidth + 20 * card.u
+                    implicitHeight: resyncLabel.implicitHeight + 10 * card.u
+                    radius: 8 * card.u
+                    color: resyncMouse.containsMouse && !root.resyncSent ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.07)
+                    border.color: Qt.rgba(1, 1, 1, 0.18)
+                    border.width: 1
+                    opacity: root.resyncSent ? 0.6 : 1
+                    Text {
+                        id: resyncLabel
+                        anchors.centerIn: parent
+                        text: root.resyncSent ? (root.english ? "Requested ✓" : "Diminta ✓") : "↻ " + (root.english ? "Update" : "Kemas kini")
+                        color: root.accent
+                        font.pixelSize: 13 * card.u
+                    }
+                    MouseArea {
+                        id: resyncMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        enabled: !root.resyncSent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.requestResync()
+                    }
+                }
             }
 
             Text {

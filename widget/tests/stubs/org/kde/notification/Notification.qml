@@ -11,6 +11,6 @@ QtObject {
     property int flags
     property list<QtObject> actions
     property bool closed: false
-    function sendEvent() { TestHooks.notifications = TestHooks.notifications.concat([this]); }
+    function sendEvent() { if (TestHooks.accepting) TestHooks.notifications = TestHooks.notifications.concat([this]); }
     function close() { closed = true; }
 }
