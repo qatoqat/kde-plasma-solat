@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.notification
@@ -597,7 +598,7 @@ PlasmoidItem {
 
         PlasmaExtras.PlasmoidHeading {
             Layout.fillWidth: true
-            location: PlasmaExtras.PlasmoidHeading.Location.Footer
+            position: QQC2.ToolBar.Footer
             contentItem: RowLayout {
                 spacing: Kirigami.Units.smallSpacing
                 ColumnLayout {

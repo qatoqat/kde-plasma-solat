@@ -66,10 +66,11 @@ KWin doesn't support `ext-session-lock`, so this doesn't replace the KDE locker.
 ```sh
 node widget/test-logic.mjs        # unit tests for the date/timetable logic
 python3 widget/tests/run.py       # widget behaviour tests (needs qml6, no Plasma session)
+scripts/smoke.sh                  # in a live Plasma session: restart the shell, fail if the widget does not load
 python3 scripts/build.py     # builds dist/*.plasmoid
 ```
 
-The behaviour tests load the real `main.qml` against stub Plasma modules (`widget/tests/stubs`) with a controllable clock, and cover downloads, settings taking effect immediately, the Imsak day boundary, notifications, lock screen sync and first-run import. Add a case to `widget/tests/tst_widget.qml` for every bug you fix.
+The behaviour tests load the real `main.qml` against stub Plasma modules (`widget/tests/stubs`) with a controllable clock, and cover downloads, settings taking effect immediately, the Imsak day boundary, notifications, lock screen sync and first-run import. The headless tests do not run the views, so run `scripts/smoke.sh` in a Plasma session after changing them. Add a case to `widget/tests/tst_widget.qml` for every bug you fix.
 
 Pushing a `v*` tag builds the `.plasmoid` files in CI and attaches them to the release.
 

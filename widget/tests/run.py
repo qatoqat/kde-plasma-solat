@@ -44,12 +44,37 @@ def static_checks(src):
     return problems
 
 
+def lint():
+    """Run the real qmllint on the views when the Plasma QML modules are installed, so unknown
+    properties and types in code the headless test strips (e.g. PlasmoidHeading) are caught."""
+    tool = next((c for c in (shutil.which("qmllint"), shutil.which("qmllint6"), "/usr/lib/qt6/bin/qmllint") if c and os.path.exists(c)), None)
+    qmldir = next((d for d in ("/usr/lib/qt6/qml", "/usr/lib/qt/qml") if os.path.isdir(os.path.join(d, "org/kde/plasma/extras"))), None)
+    if not tool or not qmldir:
+        print("skip - qmllint with Plasma modules not available")
+        return []
+    problems = []
+    for rel in ("contents/ui/main.qml", "contents/ui/ConfigGeneral.qml"):
+        out = subprocess.run([tool, "-I", qmldir, os.path.join(WIDGET, rel)], capture_output=True, text=True).stdout
+        for line in out.splitlines():
+            if line.startswith(("Warning", "Error")) and "[unqualified]" not in line:
+                problems.append(line)
+            elif line.startswith("Error"):
+                problems.append(line)
+    return problems
+
+
 def main():
     src = open(os.path.join(WIDGET, "contents/ui/main.qml"), encoding="utf-8").read()
     problems = static_checks(src)
     if problems:
         print("\n".join("FAIL (static): " + p for p in problems))
         return 1
+
+    lint_problems = lint()
+    if lint_problems:
+        print("\n".join("FAIL (qmllint): " + p for p in lint_problems))
+        return 1
+    print("ok  - qmllint")
 
     tmp = tempfile.mkdtemp(prefix="solat-test-")
     try:

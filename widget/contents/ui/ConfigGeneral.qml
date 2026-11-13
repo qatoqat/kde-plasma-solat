@@ -22,10 +22,10 @@ KCM.SimpleKCM {
     property int cfg_RemindEveryDefault
     property bool cfg_LockScreenDefault
 
-    readonly property var states: Zones.zones.map(z => z.state).filter((v, i, a) => a.indexOf(v) === i)
+    readonly property var stateNames: Zones.zones.map(z => z.state).filter((v, i, a) => a.indexOf(v) === i)
     readonly property string currentState: {
         const z = Zones.zones.find(z => z.code === cfg_Zone);
-        return z ? z.state : states[0];
+        return z ? z.state : stateNames[0];
     }
     readonly property var stateZones: Zones.zones.filter(z => z.state === currentState)
         .map(z => ({ text: z.code + " — " + z.name, code: z.code }))
@@ -37,8 +37,8 @@ KCM.SimpleKCM {
             id: stateBox
             Kirigami.FormData.label: "State:"
             Layout.preferredWidth: Kirigami.Units.gridUnit * 20
-            model: page.states
-            currentIndex: Math.max(0, page.states.indexOf(page.currentState))
+            model: page.stateNames
+            currentIndex: Math.max(0, page.stateNames.indexOf(page.currentState))
             onActivated: {
                 const first = Zones.zones.find(z => z.state === currentText);
                 if (first) page.cfg_Zone = first.code;
