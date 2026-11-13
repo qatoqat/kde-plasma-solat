@@ -7,7 +7,7 @@
         "Id": "solat.lockscreen",
         "License": "GPL-2.0-or-later",
         "Name": "Waktu Solat (JAKIM)",
-        "Version": "0.4.1",
+        "Version": "0.4.2",
         "Website": "https://github.com/qatoqat/kde-plasma-solat"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

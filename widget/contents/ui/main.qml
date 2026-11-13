@@ -550,7 +550,11 @@ PlasmoidItem {
                     implicitHeight: Kirigami.Units.gridUnit * 2
                     radius: Kirigami.Units.cornerRadius
                     color: isCurrent ? Qt.alpha(Kirigami.Theme.highlightColor, 0.18) : "transparent"
-                    border.color: isCurrent ? Kirigami.Theme.highlightColor : "transparent"
+                    // Current prayer: solid highlight border. Other rows get one on hover.
+                    border.color: isCurrent ? Kirigami.Theme.highlightColor
+                                : rowHover.hovered ? Qt.alpha(Kirigami.Theme.highlightColor, 0.6) : "transparent"
+
+                    HoverHandler { id: rowHover }
 
                     MouseArea {
                         anchors.fill: parent
