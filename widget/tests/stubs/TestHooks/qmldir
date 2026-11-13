@@ -1,0 +1,2 @@
+module TestHooks
+singleton TestHooks 1.0 TestHooks.qml

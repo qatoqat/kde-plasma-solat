@@ -17,7 +17,10 @@ PlasmoidItem {
 
     readonly property var cfg: Plasmoid.configuration
     readonly property string api: "https://www.e-solat.gov.my/index.php?r=esolatApi/TakwimSolat&period=duration&zone="
-    property date now: new Date()
+    // Tests drive time through clockOverride; production always uses the real clock.
+    property var clockOverride: null
+    function clock() { return clockOverride ? new Date(clockOverride) : new Date(); }
+    property date now: clock()
     property bool syncing: false
     property string syncError: ""
 
@@ -89,7 +92,7 @@ PlasmoidItem {
     // Current prayer started but not ticked: nudge in the compact view.
     readonly property bool pending: current > 0 && keys[current] !== "" && done.indexOf(current) < 0
 
-    Plasmoid.icon: "clock"
+    Plasmoid.icon: "kde-plasma-solat"
     toolTipMainText: next ? nameOf(next.index, next.d) + " " + fmt(next.hhmm) : "Waktu Solat"
     toolTipSubText: next ? (english ? "in " : "dalam ") + countdown : ""
 
@@ -106,7 +109,7 @@ PlasmoidItem {
         if (value) list.push(i);
         list.sort();
         map[key] = list;
-        cfg.DoneJson = JSON.stringify(Logic.pruneDone(map, Logic.isoDate(new Date()), 60));
+        cfg.DoneJson = JSON.stringify(Logic.pruneDone(map, Logic.isoDate(clock()), 60));
         writeLock("Done", JSON.stringify({ d: key, p: list }));
         if (value) dropAsk(key + ":" + i);
     }
@@ -247,7 +250,7 @@ PlasmoidItem {
     }
     function sync(force) {
         if (syncing || !cfg.Migrated) return;
-        const zone = cfg.Zone, today = Logic.isoDate(new Date());
+        const zone = cfg.Zone, today = Logic.isoDate(clock());
         let cur = null;
         try { cur = JSON.parse(cfg.PrayerData); } catch (e) {}
         if (!force && Logic.covers(cur, zone, today, 14)) return;
@@ -257,7 +260,7 @@ PlasmoidItem {
         const fail = err => { syncing = false; syncError = err; retryTimer.restart(); };
         const step = k => {
             if (k >= chunks.length) {
-                const n = new Date();
+                const n = clock();
                 cfg.PrayerData = JSON.stringify({ zone: zone, fetched: Logic.isoDate(n) + " " + Logic.pad(n.getHours()) + ":" + Logic.pad(n.getMinutes()), days: all });
                 syncing = false;
                 syncError = "";
@@ -298,7 +301,7 @@ PlasmoidItem {
     function snooze(key) {
         const a = asks[key];
         if (!a) return;
-        a.next = new Date(Date.now() + Math.max(5, Math.min(240, cfg.RemindEvery)) * 60000);
+        a.next = new Date(clock().getTime() + Math.max(5, Math.min(240, cfg.RemindEvery)) * 60000);
         if (a.notif) a.notif.close();
     }
     function dropAsk(key) {
@@ -323,11 +326,11 @@ PlasmoidItem {
             text: english ? "Have you prayed " + name + "?" : "Sudah solat " + name + "?"
         });
         n.sendEvent();
-        asks[key] = { notif: n, next: new Date(Date.now() + Math.max(5, Math.min(240, cfg.RemindEvery)) * 60000), warn: warn };
+        asks[key] = { notif: n, next: new Date(clock().getTime() + Math.max(5, Math.min(240, cfg.RemindEvery)) * 60000), warn: warn };
     }
     function notifyTick() {
         if (!day) return;
-        const nowD = new Date();
+        const nowD = clock();
         for (const key in asks) if (key.indexOf(day.d + ":") !== 0) dropAsk(key);
         if (!cfg.Notify) { for (const key in asks) dropAsk(key); return; }
         for (const i of [1, 3, 4, 5, 6]) {
@@ -350,7 +353,7 @@ PlasmoidItem {
         onTriggered: root.notifyTick()
     }
 
-    Timer { interval: 15000; running: true; repeat: true; onTriggered: root.now = new Date() }
+    Timer { interval: 15000; running: true; repeat: true; onTriggered: root.now = root.clock() }
     Timer { interval: 30000; running: true; repeat: true; onTriggered: { root.pollLockScreen(); if (root.cfg.Migrated) root.mirrorAll(); } }
     // One-time import of Zone, language, 12h and reminder settings that earlier
     // versions kept in the lock screen config, so upgrading changes nothing.
@@ -396,7 +399,10 @@ PlasmoidItem {
             anchors.centerIn: parent
             spacing: Kirigami.Units.smallSpacing
             Kirigami.Icon {
-                source: "clock"
+                // Symbolic {8/2} star shipped inside the widget, recoloured to the panel text colour.
+                source: Qt.resolvedUrl("../images/solat-symbolic.svg")
+                isMask: true
+                color: Kirigami.Theme.textColor
                 visible: compact.vertical || !root.next
                 Layout.preferredHeight: Kirigami.Units.iconSizes.smallMedium
                 Layout.preferredWidth: Layout.preferredHeight

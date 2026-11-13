@@ -1,3 +1,5 @@
+<p align="center"><img src="icons/kde-plasma-solat.svg" width="96" alt="kde-plasma-solat icon"></p>
+
 # kde-plasma-solat
 
 Malaysian prayer times from [JAKIM e-solat](https://www.e-solat.gov.my) for KDE Plasma 6: a panel widget and a lock screen.
@@ -62,9 +64,12 @@ KWin doesn't support `ext-session-lock`, so this doesn't replace the KDE locker.
 ## Development
 
 ```sh
-node widget/test-logic.mjs   # unit tests for the date/timetable logic
+node widget/test-logic.mjs        # unit tests for the date/timetable logic
+python3 widget/tests/run.py       # widget behaviour tests (needs qml6, no Plasma session)
 python3 scripts/build.py     # builds dist/*.plasmoid
 ```
+
+The behaviour tests load the real `main.qml` against stub Plasma modules (`widget/tests/stubs`) with a controllable clock, and cover downloads, settings taking effect immediately, the Imsak day boundary, notifications, lock screen sync and first-run import. Add a case to `widget/tests/tst_widget.qml` for every bug you fix.
 
 Pushing a `v*` tag builds the `.plasmoid` files in CI and attaches them to the release.
 

@@ -1,6 +1,6 @@
 # Maintainer: Qatoqat <39856402+qatoqat@users.noreply.github.com>
 pkgname=kde-plasma-solat
-pkgver=0.3.2
+pkgver=0.3.3
 pkgrel=1
 pkgdesc="JAKIM (e-solat.gov.my) prayer times for KDE Plasma: panel widget with check-offs and reminders, and a lock screen"
 arch=('any')
@@ -21,6 +21,8 @@ package() {
     install -Dm644 widget/contents/config/* -t "$widget/contents/config/"
     install -Dm644 widget/contents/ui/* -t "$widget/contents/ui/"
     install -Dm644 widget/contents/code/* -t "$widget/contents/code/"
+    install -Dm644 widget/contents/images/* -t "$widget/contents/images/"
+    install -Dm644 icons/kde-plasma-solat.svg -t "$pkgdir/usr/share/icons/hicolor/scalable/apps/"
 
     local plugin="$pkgdir/usr/share/plasma/wallpapers/solat.lockscreen"
     install -Dm644 plasma/metadata.json -t "$plugin/"
