@@ -38,11 +38,12 @@ WallpaperItem {
     }
     readonly property var prayerKeys: ["", "subuh", "", "zohor", "asar", "maghrib", "isyak"]
 
+    // Saved straight to kscreenlockerrc; the panel widget picks it up from there.
     function setDone(i, value) {
-        const list = done.filter(p => p !== i);
-        if (value) list.push(i);
+        const list = done.filter(p => p !== i).concat(value ? [i] : []).sort();
         localDone = { d: dayKey, p: list };
-        runner.connectSource('PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH" solat ' + (value ? "done " : "undo ") + prayerKeys[i]);
+        const json = JSON.stringify(localDone);
+        runner.connectSource("kwriteconfig6 --file kscreenlockerrc --group Greeter --group Wallpaper --group solat.lockscreen --group General --key Done '" + json + "'");
     }
 
     P5Support.DataSource {
@@ -50,7 +51,7 @@ WallpaperItem {
         engine: "executable"
         onNewData: (source, data) => disconnectSource(source)
     }
-    readonly property bool stale: !store || store.zone !== cfg.Zone
+    readonly property bool stale: !store
 
     property date now: new Date()
 
@@ -212,8 +213,8 @@ WallpaperItem {
                 font.weight: Font.DemiBold
             }
             Text {
-                readonly property var zone: Zones.find(root.cfg.Zone)
-                text: zone ? zone.code + " · " + zone.name : root.cfg.Zone
+                readonly property var zone: root.store ? Zones.find(root.store.zone) : null
+                text: zone ? zone.code + " · " + zone.name : (root.store ? root.store.zone : "")
                 color: Qt.rgba(1, 1, 1, 0.7)
                 font.pixelSize: 14 * card.u
                 wrapMode: Text.WordWrap
@@ -310,8 +311,8 @@ WallpaperItem {
             Text {
                 visible: root.today === null || root.stale
                 text: root.english
-                    ? "No prayer times cached for " + root.cfg.Zone + ".\nRun: solat sync"
-                    : "Tiada data waktu solat untuk " + root.cfg.Zone + ".\nJalankan: solat sync"
+                    ? "No prayer times yet.\nAdd the Waktu Solat widget to a panel."
+                    : "Tiada data waktu solat.\nTambah widget Waktu Solat pada panel."
                 color: "#ffb4a2"
                 font.pixelSize: 14 * card.u
             }
@@ -319,8 +320,8 @@ WallpaperItem {
             Text {
                 visible: root.lowData
                 text: root.english
-                    ? "⚠ Times only cached for " + root.daysLeft + " more day(s) — sync has been failing.\nCheck internet, then run: solat sync"
-                    : "⚠ Data hanya untuk " + root.daysLeft + " hari lagi — kemas kini gagal.\nSemak internet, kemudian jalankan: solat sync"
+                    ? "⚠ Times only cached for " + root.daysLeft + " more day(s) — updating has been failing.\nCheck your internet connection."
+                    : "⚠ Data hanya untuk " + root.daysLeft + " hari lagi — kemas kini gagal.\nSemak sambungan internet."
                 color: "#ffd479"
                 font.pixelSize: 14 * card.u
                 wrapMode: Text.WordWrap

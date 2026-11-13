@@ -1,27 +1,17 @@
 #!/usr/bin/env bash
-# Installs solat for the current user from source (cargo + ~/.local).
+# Installs the widget and lock screen plugin for the current user (no root, no build step).
 # On Arch, prefer the package: cd packaging/arch && makepkg -si
 set -euo pipefail
 cd "$(dirname "$0")"
 
-cargo install --path . --locked
-
-if kpackagetool6 -t Plasma/Wallpaper -s solat.lockscreen >/dev/null 2>&1; then
-    kpackagetool6 -t Plasma/Wallpaper -u plasma
-else
-    kpackagetool6 -t Plasma/Wallpaper -i plasma
-fi
-
-if kpackagetool6 -t Plasma/Applet -s solat.widget >/dev/null 2>&1; then
-    kpackagetool6 -t Plasma/Applet -u widget
-else
-    kpackagetool6 -t Plasma/Applet -i widget
-fi
-
-units="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-mkdir -p "$units"
-for unit in systemd/*; do
-    sed "s|/usr/bin/solat|$HOME/.cargo/bin/solat|" "$unit" > "$units/$(basename "$unit")"
-done
-"$HOME/.cargo/bin/solat" setup
-systemctl --user restart solat-notify.service
+install_pkg() {  # type dir id
+    if kpackagetool6 -t "$1" -s "$3" >/dev/null 2>&1; then
+        kpackagetool6 -t "$1" -u "$2"
+    else
+        kpackagetool6 -t "$1" -i "$2"
+    fi
+}
+install_pkg Plasma/Applet widget solat.widget
+install_pkg Plasma/Wallpaper plasma solat.lockscreen
+echo "Done. Add 'Waktu Solat' to a panel (right-click the panel → Add Widgets),"
+echo "then pick your zone in the widget's settings."

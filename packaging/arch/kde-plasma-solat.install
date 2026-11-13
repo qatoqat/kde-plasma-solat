@@ -1,15 +1,15 @@
 post_install() {
-    echo ">>> Run 'solat setup' as your user (not root) to enable the"
-    echo ">>> services and show prayer times on the lock screen."
+    echo ">>> Right-click a panel → Add Widgets → 'Waktu Solat', then pick your zone"
+    echo ">>> in the widget's settings. To show it on the lock screen, tick"
+    echo ">>> 'Show prayer times on the lock screen' there."
 }
 
 post_upgrade() {
-    echo ">>> Restart the reminder service to pick up the new version:"
-    echo ">>>   systemctl --user restart solat-notify.service"
+    echo ">>> Restart the shell to load the new version:"
+    echo ">>>   systemctl --user restart plasma-plasmashell.service"
 }
 
 pre_remove() {
-    echo ">>> Before removing, as your user you may want to run:"
-    echo ">>>   systemctl --user disable --now solat.timer solat.path solat-notify.service"
+    echo ">>> If the lock screen uses Waktu Solat, switch it back first:"
     echo ">>>   kwriteconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugin org.kde.image"
 }

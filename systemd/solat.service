@@ -1,9 +1,0 @@
-[Unit]
-Description=Sync JAKIM prayer times for the lock screen
-After=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/solat sync
-Restart=on-failure
-RestartSec=5min

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+  <group name="General">
+    <entry name="Zone" type="String">
+      <label>JAKIM zone code</label>
+      <default>PRK02</default>
+    </entry>
+    <entry name="English" type="Bool">
+      <label>Use English prayer names</label>
+      <default>false</default>
+    </entry>
+    <entry name="Use12h" type="Bool">
+      <label>Show times in 12-hour format</label>
+      <default>false</default>
+    </entry>
+    <entry name="Notify" type="Bool">
+      <label>Ask whether each prayer is done via notifications</label>
+      <default>true</default>
+    </entry>
+    <entry name="RemindEvery" type="Int">
+      <label>Minutes between reminders</label>
+      <default>30</default>
+    </entry>
+    <entry name="LockScreen" type="Bool">
+      <label>Show prayer times on the lock screen</label>
+      <default>false</default>
+    </entry>
+    <entry name="Migrated" type="Bool">
+      <label>Settings imported from the old solat-lock config</label>
+      <default>false</default>
+    </entry>
+    <entry name="PrayerData" type="String">
+      <label>Cached timetable JSON</label>
+      <default></default>
+    </entry>
+    <entry name="DoneJson" type="String">
+      <label>Check-offs per day, JSON</label>
+      <default>{}</default>
+    </entry>
+  </group>
+</kcfg>

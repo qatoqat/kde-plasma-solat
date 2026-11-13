@@ -1,26 +1,18 @@
 # kde-plasma-solat
 
-Malaysian prayer times from [JAKIM e-solat](https://www.e-solat.gov.my) on the KDE Plasma 6 lock screen and in a panel widget.
+Malaysian prayer times from [JAKIM e-solat](https://www.e-solat.gov.my) for KDE Plasma 6: a panel widget and a lock screen.
 
 <img src="docs/preview.png" width="420" alt="Prayer times panel on the lock screen">
 
-- All 60 JAKIM zones, picked in System Settings
-- Gregorian and Hijri dates, with a countdown to the next prayer
-- The current prayer is highlighted
-- Tap a prayer on the lock screen or in the panel widget to tick it off ✓
-- Check marks reset at Imsak, not midnight: the day runs from Imsak to the next Imsak
-- Panel widget showing the next prayer and countdown, with the full list in a popup
-- Notifications ask "Sudah solat?" when each prayer time starts, and remind you until you mark it done, with a heads-up 10 and 5 minutes before the next prayer time if it is still unticked
-- Works offline: about 60 days of times are cached, with a warning if updates stop
-- Malay or English, 24h or 12h
+- **Panel widget** with the next prayer and a countdown; click for the full day, tick prayers off ✓, open e-solat, settings and a *keep open* pin
+- All 60 JAKIM zones, Malay or English names, 24h or 12h
+- Gregorian and Hijri dates
+- Check marks reset at **Imsak**, not midnight (the day runs from Imsak to the next Imsak)
+- Notifications ask "Sudah solat?" when each prayer time starts and remind you until you mark it done, with a heads-up 10 and 5 minutes before the next prayer time if it is still unticked
+- Optional lock screen showing the same times and check marks
+- Works offline: about 60 days of times are cached and refreshed automatically
 
-## How it works
-
-KWin doesn't support `ext-session-lock`, so this doesn't replace the KDE locker. KDE still does the locking and checks your password. The project has two parts:
-
-- **`solat`** (Rust): downloads the timetable and stores it in `kscreenlockerrc`, sends the notifications, and keeps track of which prayers are done.
-- **`solat.lockscreen`** (QML): a Plasma wallpaper plugin used on the lock screen. It draws the panel above the blur that appears when you move the mouse.
-- **`solat.widget`** (QML): a Plasma applet for the taskbar. Right-click the panel → Add Widgets → search "Waktu Solat". It reads `solat status`.
+Nothing to run by hand: the widget downloads the times, keeps the check marks, sends the reminders and feeds the lock screen itself. Everything runs inside Plasma, so there is no background service and no separate program.
 
 ## Install
 
@@ -30,49 +22,48 @@ KWin doesn't support `ext-session-lock`, so this doesn't replace the KDE locker.
 git clone https://github.com/qatoqat/kde-plasma-solat
 cd kde-plasma-solat/packaging/arch
 makepkg -si
-solat setup        # as your user, not root
 ```
 
-### Other distros (from source)
+### Any distro
 
-You need Rust, Plasma 6, `kpackagetool6` and `kwriteconfig6`.
+You need Plasma 6 with `kpackagetool6` and `kwriteconfig6`; no compiling.
 
 ```sh
-./install.sh            # installs to ~/.cargo/bin and ~/.local/share
-./uninstall.sh          # undo
+./install.sh      # installs for your user into ~/.local/share/plasma
+./uninstall.sh    # undo
 ```
 
-Then open **System Settings → Screen Locking → Configure Appearance…** and pick your zone. The default is PRK02.
+Or download `solat.widget.plasmoid` (and optionally `solat.lockscreen.plasmoid`) from the [releases](https://github.com/qatoqat/kde-plasma-solat/releases) and install them with `kpackagetool6 -t Plasma/Applet -i solat.widget.plasmoid` (use `-t Plasma/Wallpaper` for the lock screen one), or through *Get New Widgets → Install from file*.
 
-## Usage
+## Use
 
-```
-solat show          today's times and check marks
-solat done [PRAYER] mark a prayer done (default: the current one)
-solat undo PRAYER   unmark it
-solat zone [CODE]   print or set the zone
-solat sync --force  re-download now
-solat status         state as JSON (used by the panel widget)
-```
+1. Right-click a panel → **Add Widgets** → **Waktu Solat**.
+2. Right-click the widget → **Configure** (or the gear in its popup) and pick your zone. The default is PRK02.
+3. Optional: tick **Show prayer times on the lock screen** in the same dialog. Background image, dimming and position are set in System Settings → Screen Locking → Appearance.
 
-Prayer names: `subuh`, `zohor` (or `jumaat`), `asar`, `maghrib`, `isyak`. English names also work.
+Upgrading from the old `solat-lock` package: settings and today's check marks are imported on first start. The old `solat` command and systemd services are gone; `systemctl --user disable --now solat.timer solat.path solat-notify.service` removes the leftovers.
 
-These user services are enabled by `solat setup`:
+## How it works
 
-| Unit | Purpose |
-| --- | --- |
-| `solat.timer` | Daily sync, plus one 30 s after login |
-| `solat.path` | Re-sync when the zone changes in System Settings |
-| `solat-notify.service` | Prayer notifications and reminders |
+- **`solat.widget`** (QML): downloads the timetable from e-solat (falling back to `curl` if Qt's own network stack stalls), stores it in the widget's config, tracks check marks per day, sends notifications through KDE's notification service and writes the data the lock screen needs into `kscreenlockerrc`.
+- **`solat.lockscreen`** (QML): a Plasma wallpaper plugin. The lock screen is sandboxed with no network access, so it only shows what the widget saved. Tapping a prayer there ticks it, and the widget picks the change up within about 30 seconds.
 
-Upgrading from `solat-lock`: `solat setup` retires the old units and history is carried over.
-
-Done history is kept in `~/.local/state/solat/done.json`.
+KWin doesn't support `ext-session-lock`, so this doesn't replace the KDE locker. KDE still does the locking and checks your password.
 
 ## Notes
 
+- The widget has to be in a panel for downloads and reminders to run. If you add it to several panels you will get duplicate notifications.
 - Tapping on the lock screen saves your check-off only if `kscreenlocker` is built without its seccomp sandbox, as Arch builds it. With the sandbox, the tick shows but isn't saved.
-- Anyone at your locked computer can tick or untick today's prayers. They can't do anything else.
+- Anyone at your locked computer can tick or untick the current day's prayers. They can't do anything else.
+
+## Development
+
+```sh
+node widget/test-logic.mjs   # unit tests for the date/timetable logic
+python3 scripts/build.py     # builds dist/*.plasmoid
+```
+
+Pushing a `v*` tag builds the `.plasmoid` files in CI and attaches them to the release.
 
 ## License
 

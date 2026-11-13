@@ -3,12 +3,13 @@
     "KPlugin": {
         "Authors": [{ "Name": "q4t" }],
         "Category": "Date and Time",
-        "Description": "Next prayer, countdown and check-offs from JAKIM e-solat",
+        "Description": "JAKIM e-solat prayer times: next prayer, check-offs and reminders",
         "Icon": "clock",
         "Id": "solat.widget",
         "License": "GPL-2.0-or-later",
         "Name": "Waktu Solat (JAKIM)",
-        "Version": "1.0"
+        "Version": "0.3.0",
+        "Website": "https://github.com/qatoqat/kde-plasma-solat"
     },
     "X-Plasma-API-Minimum-Version": "6.0"
 }
