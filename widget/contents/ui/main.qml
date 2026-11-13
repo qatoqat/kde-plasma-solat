@@ -193,6 +193,13 @@ PlasmoidItem {
             text: root.next ? root.nameOf(root.next.index, root.next.d) + (root.english ? " in " : " dalam ") + root.countdown : ""
         }
         PlasmaComponents3.Label {
+            visible: root.st !== null && !!root.st.fetched
+            Layout.topMargin: Kirigami.Units.smallSpacing
+            opacity: 0.6
+            font: Kirigami.Theme.smallFont
+            text: root.st ? (root.english ? "Last updated: " : "Waktu kemaskini: ") + root.st.fetched : ""
+        }
+        PlasmaComponents3.Label {
             visible: root.day === null
             Layout.maximumWidth: Kirigami.Units.gridUnit * 16
             wrapMode: Text.WordWrap

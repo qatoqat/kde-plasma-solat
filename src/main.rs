@@ -224,6 +224,7 @@ fn status() -> Result<()> {
         "next": idx.and_then(|i| store.days.get(i + 1)),
         "done": remind::done_on(date),
         "last": store.days.last().map(|d| &d.d),
+        "fetched": store.fetched,
     });
     println!("{out}");
     Ok(())
