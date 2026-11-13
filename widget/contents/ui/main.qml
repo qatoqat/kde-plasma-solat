@@ -77,7 +77,7 @@ PlasmoidItem {
             disconnectSource(source);
             if (source.indexOf(" status") >= 0 && data["exit code"] === 0) {
                 try { root.st = JSON.parse(data["stdout"]); } catch (e) {}
-            } else if (source.indexOf(" status") < 0) {
+            } else if (source.indexOf(" status") < 0 && source.indexOf("systemsettings") < 0) {
                 root.refresh();
             }
         }
@@ -126,9 +126,25 @@ PlasmoidItem {
         Layout.minimumHeight: implicitHeight
         spacing: Kirigami.Units.smallSpacing
 
-        Kirigami.Heading {
-            level: 3
-            text: (root.english ? "Prayer Times" : "Waktu Solat") + (root.st ? " · " + root.st.zone : "")
+        RowLayout {
+            Layout.fillWidth: true
+            Kirigami.Heading {
+                level: 3
+                Layout.fillWidth: true
+                text: (root.english ? "Prayer Times" : "Waktu Solat") + (root.st ? " · " + root.st.zone : "")
+            }
+            PlasmaComponents3.ToolButton {
+                icon.name: "configure"
+                display: PlasmaComponents3.AbstractButton.IconOnly
+                text: root.english ? "Settings" : "Tetapan"
+                PlasmaComponents3.ToolTip.text: text
+                PlasmaComponents3.ToolTip.visible: hovered
+                // Zone, language, 12h and reminders live in Screen Locking → Configure Appearance.
+                onClicked: {
+                    runner.connectSource("systemsettings kcm_screenlocker");
+                    root.expanded = false;
+                }
+            }
         }
         PlasmaComponents3.Label {
             visible: root.day !== null
